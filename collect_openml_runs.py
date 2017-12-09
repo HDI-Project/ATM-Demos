@@ -2,6 +2,7 @@ import requests
 import csv
 import os
 import argparse
+import traceback
 
 
 def ensure_directory(directory):
@@ -68,15 +69,17 @@ def get_runs(taskids, apikey, writer, max_num_runs=500, step=10000):
                                 writer.writerow([run['run_id'], run['upload_time'], result['predictive_accuracy'],
                                              result['f_measure'], result['precision'], result['recall']])
                             except Exception:
-                                print 'result skipped'
+                                msg = traceback.format_exc()
+                                print 'result skipped: {}'.format(msg)
 
                             runcount += 1
 
                             if (max_num_runs > 0) and (runcount % max_num_runs == 0):
                                 return # reached max num_of_runs, so stop looking and return to main
 
-                except:
-                    print 'bad return'
+                except Exception:
+                    msg = traceback.format_exc()
+                    print 'bad return: {}'.format(msg)
 
                 offset += step
             else:
