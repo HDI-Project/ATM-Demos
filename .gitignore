@@ -5,6 +5,8 @@ compare-atm-openml/atm-results-grid-binary/
 compare-atm-openml/openml-results
 compare-atm-openml/openml-did-name-list.csv
 compare-atm-openml/results.csv
+compare-atm-openml/results_gp.csv
+compare-atm-openml/results_grid.csv
 .DS_Store
 .idea/
 

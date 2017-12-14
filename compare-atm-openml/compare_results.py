@@ -1,130 +1,57 @@
-import os
-import datetime
 import pandas as pd
-import csv
+import numpy as nd
 
-def calculate_time_to_atm_idx(results, idx):
-    running_time = datetime.timedelta()
-    for i in range(idx+1):
-        row = results.loc[i]
-        running_time += row['end_time'] - row['start_time']
-
-    return running_time
-
-def get_best_atm_performance(filepath):
-    atm_results = pd.read_csv(filepath)
-    atm_results['start_time'] = pd.to_datetime(atm_results['start_time'])
-    atm_results['end_time'] = pd.to_datetime(atm_results['end_time'])
-    atm_results = atm_results.sort_values('end_time')
-    atm_results.reset_index(drop=True, inplace=True)
-
-    cvs = atm_results['cv']
-    stds = atm_results['std']
-    tests = atm_results['test']
-
-    best_cv = cvs.max()
-    best_cv_idx = cvs.idxmax()
-    # best_cv_std = stds.loc[best_cv_idx]
-    # best_cv_test = tests.loc[best_cv_idx]
-
-    best_test = tests.max()
-    best_test_idx = tests.idxmax()
-    # best_test_cv = cvs.loc[best_test_idx]
-    # best_test_cv_std = stds.loc[best_test_idx]
-
-    time_to_best_cv = calculate_time_to_atm_idx(atm_results, best_cv_idx)
-    time_to_best_test = calculate_time_to_atm_idx(atm_results, best_test_idx)
-
-    return best_cv, time_to_best_cv.total_seconds(), best_test, time_to_best_test.total_seconds()
-
-def get_best_openml_performance(filepath):
-    openml_results = pd.read_csv(filepath)
-    openml_results['Time'] = pd.to_datetime(openml_results['Time'])
-    openml_results = openml_results.sort_values('Time')
-    openml_results.reset_index(drop=True, inplace=True)
-
-    first_time = openml_results['Time'].loc[0]
-
-    best_f1 = openml_results['F_Measure'].max()
-    best_f1_idx = openml_results['F_Measure'].idxmax()
-    best_f1_time = openml_results['Time'].loc[best_f1_idx]
-
-    time_to_best_f1 = best_f1_time - first_time
-
-    return best_f1, time_to_best_f1.total_seconds()
-
-
-def get_time_to_beat_atm(openml_filepath, best_f1):
-    openml_results = pd.read_csv(openml_filepath)
-    openml_results['Time'] = pd.to_datetime(openml_results['Time'])
-    openml_results = openml_results.sort_values('Time')
-    openml_results.reset_index(drop=True, inplace=True)
-
-    first_time = openml_results['Time'].loc[0]
-
-    for row in openml_results.iterrows():
-        if row[1].get('F_Measure') > best_f1:
-            return row[1].get('F_Measure'), (row[1].get('Time') - first_time).total_seconds()
-
-openml_dir = 'openml-results'
-grid_dir = 'atm-results-grid-binary'
-gp_dir = 'atm-results-gpbandit-binary'
+run_type = 'gp'
 
 effectively_same_value = 0.0001
 
-did_name_list = pd.read_csv('openml-did-name-list.csv')
+dataset_results_filename = 'results_{}.csv'.format(run_type)
+
+data = pd.read_csv(dataset_results_filename)
+
+### cv
+
+openml_beats_cv = data.loc[pd.notnull(data['openml_performance_increase_cv'])]
+openml_beats_cv.reset_index(drop=True, inplace=True)
+openml_beats_cv = openml_beats_cv.loc[pd.isnull(openml_beats_cv['atm_performance_increase_cv'])]
+openml_beats_cv.reset_index(drop=True, inplace=True)
+
+print 'Best F1 in the first 1000 OpenML runs is better than the best ATM cv (occurs {} of {} times):'.format(len(openml_beats_cv.index), len(data.index))
+print '\tAverage time to achieve best performance in first 1000 OpenML: {} s'.format(openml_beats_cv['openml_time_to_best_f1'].mean())
+print '\tAverage F1 increase over ATM: {}'.format(openml_beats_cv['openml_performance_increase_cv'].mean())
+
+atm_cv_beats_openml = data.loc[pd.notnull(data['atm_performance_increase_cv'])]
+openml_beats_cv.reset_index(drop=True, inplace=True)
+atm_cv_beats_openml = atm_cv_beats_openml.loc[pd.isnull(atm_cv_beats_openml['openml_performance_increase_cv'])]
+atm_cv_beats_openml.reset_index(drop=True, inplace=True)
+
+print 'Best ATM cv F1 is better than best F1 in the first 1000 OpenML (occurs {} of {} times):'.format(len(atm_cv_beats_openml.index), len(data.index))
+print '\tAverage time to attempt first 1000 OpenML: {} days'.format(atm_cv_beats_openml['openml_total_time'].mean()/float(86400))
+print '\tAverage F1 increase over OpenML: {}'.format(atm_cv_beats_openml['atm_performance_increase_cv'].mean())
+
+print 'Best ATM cv and Best OpenML in the first 1000 tie (F1 within 0.0001) {} times'.format(len(data.index)-len(openml_beats_cv.index)-len(atm_cv_beats_openml.index))
 
 
-with open('results.csv','w') as f:
-    writer = csv.writer(f)
-    writer.writerow(['did','name', 'gp_best_cv', 'gp_time_to_best_cv', 'gp_best_test', 'gp_time_to_best_test',
-                     'grid_best_cv', 'grid_time_to_best_cv', 'grid_best_test', 'grid_time_to_best_test',
-                     'openml_best_f1', 'openml_time_to_best_f1', 'openml_beat_atm_cv_f1_gp',
-                     'openml_time_beat_atm_cv_gp', 'openml_beat_atm_cv_f1_grid', 'openml_time_beat_atm_cv_grid',
-                     'openml_beat_atm_test_f1_gp', 'openml_time_beat_atm_test_gp', 'openml_beat_atm_test_f1_grid',
-                     'openml_time_beat_atm_test_grid'])
+### test
 
-    for row in did_name_list.iterrows():
-        openml_filepath = os.path.join(openml_dir,'{}.csv'.format(row[1].get('did')))
-        grid_filepath = os.path.join(grid_dir, row[1].get('name'))
-        gp_filepath = os.path.join(gp_dir, row[1].get('name'))
+openml_beats_test = data.loc[pd.notnull(data['openml_performance_increase_test'])]
+openml_beats_test.reset_index(drop=True, inplace=True)
+openml_beats_test = openml_beats_test.loc[pd.isnull(data['atm_performance_increase_test'])]
+openml_beats_test.reset_index(drop=True, inplace=True)
 
-        if os.path.isfile(gp_filepath) and os.path.isfile(grid_filepath) and os.path.isfile(openml_filepath):
-            gp_best_cv, gp_time_to_best_cv, gp_best_test, gp_time_to_best_test = get_best_atm_performance(
-                filepath=gp_filepath)
-            grid_best_cv, grid_time_to_best_cv, grid_best_test, grid_time_to_best_test = get_best_atm_performance(
-                filepath=grid_filepath)
-            openml_best_f1, openml_time_to_best_f1 = get_best_openml_performance(filepath=openml_filepath)
+print '\nBest F1 in the first 1000 OpenML runs is better than the best ATM test (occurs {} of {} times):'.format(len(openml_beats_test.index), len(data.index))
+print '\tAverage time to achieve best performance in first 1000 OpenML: {} s'.format(openml_beats_test['openml_time_to_best_f1'].mean())
+print '\tAverage F1 increase over ATM: {}'.format(openml_beats_test['openml_performance_increase_test'].mean())
 
-            # compare openml and cv scores
-            if openml_best_f1 - gp_best_cv > effectively_same_value:
-                openml_beat_atm_cv_f1_gp, openml_time_beat_atm_cv_gp = get_time_to_beat_atm(openml_filepath=openml_filepath, best_f1=gp_best_cv)
-            else:
-                openml_beat_atm_cv_f1_gp = float('nan')
-                openml_time_beat_atm_cv_gp = float('nan')
+atm_test_beats_openml = data.loc[pd.notnull(data['atm_performance_increase_test'])]
+atm_test_beats_openml.reset_index(drop=True, inplace=True)
+atm_test_beats_openml = atm_test_beats_openml.loc[pd.isnull(atm_test_beats_openml['openml_performance_increase_test'])]
+atm_test_beats_openml.reset_index(drop=True, inplace=True)
 
-            if openml_best_f1 - grid_best_cv > effectively_same_value:
-                openml_beat_atm_cv_f1_grid, openml_time_beat_atm_cv_grid = get_time_to_beat_atm(openml_filepath=openml_filepath, best_f1=grid_best_cv)
-            else:
-                openml_beat_atm_cv_f1_grid = float('nan')
-                openml_time_beat_atm_cv_grid = float('nan')
+print 'Best ATM test F1 is better than best F1 in the first 1000 OpenML (occurs {} of {} times):'.format(len(atm_test_beats_openml.index), len(data.index))
+print '\tAverage time to attempt first 1000 OpenML: {} days'.format(atm_test_beats_openml['openml_total_time'].mean()/float(86400))
+print '\tAverage F1 increase over OpenML: {}'.format(atm_test_beats_openml['atm_performance_increase_test'].mean())
 
-            # compare openml and test scores
-            if openml_best_f1 - gp_best_test > effectively_same_value:
-                openml_beat_atm_test_f1_gp, openml_time_beat_atm_test_gp = get_time_to_beat_atm(openml_filepath=openml_filepath, best_f1=gp_best_test)
-            else:
-                openml_beat_atm_test_f1_gp = float('nan')
-                openml_time_beat_atm_test_gp = float('nan')
 
-            if openml_best_f1 - grid_best_test > effectively_same_value:
-                openml_beat_atm_test_f1_grid, openml_time_beat_atm_test_grid = get_time_to_beat_atm(openml_filepath=openml_filepath, best_f1=grid_best_test)
-            else:
-                openml_beat_atm_test_f1_grid = float('nan')
-                openml_time_beat_atm_test_grid = float('nan')
 
-            writer.writerow([row[1].get('did'), row[1].get('name'), gp_best_cv, gp_time_to_best_cv, gp_best_test,
-                             gp_time_to_best_test, grid_best_cv, grid_time_to_best_cv, grid_best_test,
-                             grid_time_to_best_test, openml_best_f1, openml_time_to_best_f1, openml_beat_atm_cv_f1_gp,
-                             openml_time_beat_atm_cv_gp, openml_beat_atm_cv_f1_grid, openml_time_beat_atm_cv_grid,
-                             openml_beat_atm_test_f1_gp, openml_time_beat_atm_test_gp, openml_beat_atm_test_f1_grid,
-                             openml_time_beat_atm_test_grid])
+print 'ATM test and OpenML tie (F1 within 0.0001) {} times'.format(len(data.index)-len(openml_beats_test.index)-len(atm_test_beats_openml.index))
