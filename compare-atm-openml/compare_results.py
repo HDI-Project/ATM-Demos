@@ -15,7 +15,6 @@ run_type = args.runtype
 effectively_same_value = args.equalval
 
 dataset_results_filename = '{}_{}.csv'.format(args.outprefix, run_type)
-print dataset_results_filename
 
 data = pd.read_csv(dataset_results_filename)
 
