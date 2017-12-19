@@ -1,11 +1,21 @@
 import pandas as pd
-import numpy as nd
+import argparse
 
-run_type = 'gp'
+parser = argparse.ArgumentParser(description='Compile best results for ATM and OpenML.')
+parser.add_argument('-r', '--runtype', type=str, choices=['gp', 'grid'], default='gp',
+                     help='Which ATM run to use (gp or grid).')
+parser.add_argument('-e', '--equalval', type=float, default=0.0001,
+                     help='Maximum value to consider being an equal number.')
+parser.add_argument('-u', '--outprefix', type=str, default='results',
+                     help='File prefix used by compile_results.py (gp or grid will be automatically appended).')
+args = parser.parse_args()
 
-effectively_same_value = 0.0001
+run_type = args.runtype
 
-dataset_results_filename = 'results_{}.csv'.format(run_type)
+effectively_same_value = args.equalval
+
+dataset_results_filename = '{}_{}.csv'.format(args.outprefix, run_type)
+print dataset_results_filename
 
 data = pd.read_csv(dataset_results_filename)
 

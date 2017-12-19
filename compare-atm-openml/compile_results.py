@@ -2,6 +2,7 @@ import os
 import datetime
 import pandas as pd
 import csv
+import argparse
 
 def calculate_time_to_atm_idx(results, idx):
     running_time = datetime.timedelta()
@@ -69,17 +70,34 @@ def get_time_to_beat_atm(openml_filepath, best_f1):
         if row[1].get('F_Measure') > best_f1:
             return row[1].get('F_Measure'), (row[1].get('Time') - first_time).total_seconds()
 
-openml_dir = 'openml-results'
-grid_dir = 'atm-results-grid-binary'
-gp_dir = 'atm-results-gpbandit-binary'
 
-run_type = 'gp'
+parser = argparse.ArgumentParser(description='Compile best results for ATM and OpenML.')
+parser.add_argument('-r', '--runtype', type=str, choices=['gp', 'grid'], default='gp',
+                     help='Which ATM run to use (gp or grid).')
+parser.add_argument('-o', '--openmldir', type=str, default='openml-results', help='Directory with OpenML results.')
+parser.add_argument('-g', '--griddir', type=str, default='atm-results-grid-binary',
+                     help='Directory with ATM Grid results')
+parser.add_argument('-b', '--gpdir', type=str, default='atm-results-gpbandit-binary',
+                     help='Directory with ATM GP+Bandit results')
+parser.add_argument('-u', '--outprefix', type=str, default='results',
+                     help='File prefix to save the output (gp or grid will be automatically appended).')
+parser.add_argument('-c', '--didnamefile', type=str, default='openml-did-name-list.csv',
+                     help='File which list OpenML did and dataset name.')
+parser.add_argument('-e', '--equalval', type=float, default=0.0001,
+                     help='Maximum value to consider being an equal number.')
+args = parser.parse_args()
 
-effectively_same_value = 0.0001
+openml_dir = args.openmldir
+grid_dir = args.griddir
+gp_dir = args.gpdir
 
-did_name_list = pd.read_csv('openml-did-name-list.csv')
+run_type = args.runtype
 
-dataset_results_filename = 'results_{}.csv'.format(run_type)
+effectively_same_value = args.equalval
+
+did_name_list = pd.read_csv(args.didnamefile)
+
+dataset_results_filename = '{}_{}.csv'.format(args.outprefix, run_type)
 with open(dataset_results_filename, 'w') as f:
     writer = csv.writer(f)
     writer.writerow(['did','name', 'best_cv', 'best_test', 'openml_best_f1', 'openml_time_to_best_f1',
