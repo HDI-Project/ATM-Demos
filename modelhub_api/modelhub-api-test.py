@@ -27,7 +27,7 @@ print '\t+{}+'.format('-' * 41)
 print '\nHere are some SVM & KNN results for dataset 2:'
 
 classifier_ids = qr.get_classifier_ids(csv_dir=csv_dir, n = 5, dataset_ids = 2, method_ids= ['classify_svm', 'classify_knn'])
-classifier_structs = qr.get_classifier_details(csv_dir='gp_csvs', classifier_ids=classifier_ids)
+classifier_structs = qr.get_classifier_details(csv_dir=csv_dir, classifier_ids=classifier_ids)
 
 print '\t|{}|'.format('-'*29)
 print '\t| {0: >15} | {1: <9} |'.format('Classifier ID', 'Test Acc.')
