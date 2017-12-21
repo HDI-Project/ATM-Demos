@@ -30,19 +30,6 @@ class ClassifierInfo(object):
         return str
 
 
-def get_functions(csv_dir):
-    filename = os.path.join(csv_dir, 'classifiers.csv')
-    table = pd.read_csv(filename)
-
-
-    function_tuple_list = []
-    for row in table:
-        print row.get('')
-        # function_tuple_list.append((algorithm.code, algorithm.name))
-
-    return function_tuple_list
-
-
 def get_datasets_info(csv_dir=None, n=None, method_ids=None):
     if not csv_dir:
         raise Exception('CSV directory must be given')
