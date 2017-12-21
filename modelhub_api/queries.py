@@ -1,16 +1,15 @@
-from atm.database import Database
-from sqlalchemy import and_
+import pandas as pd
+import numpy as np
+import os
 
 
 class ClassifierInfo(object):
     def __init__(self):
         self.classifier_id = -1
-        self.dataset_id = -1
-        self.function_id = ''
+        self.datarun_id = -1
         self.hyperparameters = []
-        self.train_accuracy = -1.0
-        self.train_std = -1.0
-        self.test_accuracy = -1.0
+        self.train_cv_metric = -1.0
+        self.test_metric = -1.0
 
     def __repr__(self):
         return 'Classifier{}'.format(self.classifier_id)
@@ -22,12 +21,9 @@ class ClassifierInfo(object):
         str = ''
 
         str += 'Classifier - ID = {}\n'.format(self.classifier_id)
-        str += '\t{} = {}\n'.format('Dataset ID', self.dataset_id)
-        str += '\t{} = {}\n'.format('Function ID', self.function_id)
-        str += '\t{} = {}\n'.format('Dataset ID', self.dataset_id)
-        str += '\t{} = {}\n'.format('Train Accuracy', self.train_accuracy)
-        str += '\t{} = {}\n'.format('Train Standard Deviation', self.train_std)
-        str += '\t{} = {}\n'.format('Test Accuracy', self.test_accuracy)
+        str += '\t{} = {}\n'.format('Datarun ID', self.datarun_id)
+        str += '\t{} = {}\n'.format('Train CV Metric', self.train_cv_metric)
+        str += '\t{} = {}\n'.format('Test Metric', self.test_metric)
         str += '\tParameters:\n'
         for key,value in self.hyperparameters:
             str += '\t\t{} = {}\n'.format(key,value)
@@ -35,164 +31,122 @@ class ClassifierInfo(object):
         return str
 
 
-def get_functions():
-    session = None
-    algorithms = []
-    try:
-        session = GetConnection()
-        algorithms = session.query(Algorithm).all()
-    except:
-        print "Error in get_algorithms:" % traceback.format_exc()
-    finally:
-        if session:
-            session.close()
+def get_functions(csv_dir):
+    filename = os.path.join(csv_dir, 'classifiers.csv')
+    table = pd.read_csv(filename)
 
-    if not algorithms:
-        return []
 
     function_tuple_list = []
-    for algorithm in algorithms:
-        function_tuple_list.append((algorithm.code, algorithm.name))
+    for row in table:
+        print row.get('')
+        # function_tuple_list.append((algorithm.code, algorithm.name))
 
     return function_tuple_list
 
 
-def get_datasets_info(n=None, function_ids=None):
-    if type(function_ids) is str:
-        function_ids = [function_ids]
+def get_datasets_info(csv_dir=None, n=None, method_ids=None):
+    if not csv_dir:
+        raise Exception('CSV directory must be given')
 
-    session = None
-    datasets = []
-    try:
-        session = GetConnection()
+    if type(method_ids) is str:
+        method_ids = [method_ids]
 
-        datarun_query = session.query(Datarun)
-        frozens_query = session.query(FrozenSet.datarun_id)
+    datasets_filename = os.path.join(csv_dir, 'datasets.csv')
+    datasets_table = pd.read_csv(datasets_filename)
 
-        # no arguments
-        if (n == None and function_ids == None):
-            datasets = datarun_query.all()
-        # only n given (i.e. only codes is None)
-        elif (function_ids == None):
-            datasets = datarun_query.limit(n).all()
-        # if codes are given (for n given or not)
-        else:
-            dataset_ids = set()
-            for code in function_ids:
-                temp_id_list = frozens_query.filter(FrozenSet.algorithm == code).distinct().all()
-                for id in temp_id_list:
-                    if id[0] not in dataset_ids:
-                        dataset_ids.add(id[0])
-            # if n not given
-            if (n == None):
-                datasets = datarun_query.filter(Datarun.id.in_(list(dataset_ids))).all()
-            # if n given
-            else:
-                datasets = datarun_query.filter(Datarun.id.in_(list(dataset_ids))).limit(n).all()
+    if method_ids:
+        dataruns_filename = os.path.join(csv_dir, 'dataruns.csv')
+        dataruns_table = pd.read_csv(dataruns_filename)
 
-        session.close()
+        hyperpartitions_filename = os.path.join(csv_dir, 'hyperpartitions.csv')
+        hyperpartitions_table = pd.read_csv(hyperpartitions_filename)
 
-    except Exception:
-        print "Error in GetDatarun():", traceback.format_exc()
+        hyperpartitions_table = hyperpartitions_table[hyperpartitions_table.method.isin(method_ids)]
+        datarun_ids = hyperpartitions_table.datarun_id.unique()
 
-    finally:
-        if session:
-            session.close()
+        dataruns_table = dataruns_table[dataruns_table.datarun_id.isin(datarun_ids)]
+        datasets_ids = dataruns_table.dataset_id.unique()
 
-    if not datasets:
-        return []
+        datasets_table = datasets_table[datasets_table.dataset_id.isin(datasets_ids)]
+    if n:
+        datasets_table = datasets_table.head(n=n)
 
     datasets_tuple_list = []
-    for dataset in datasets:
-        datasets_tuple_list.append((int(dataset.id), dataset.name))
+    for idx, row in datasets_table.iterrows():
+        datasets_tuple_list.append((int(row.get('dataset_id')), row.get('name')))
     return datasets_tuple_list
 
 
-def get_classifier_ids(n=None, dataset_ids=None, function_ids=None):
-    session = None
-    learners = []
-
+def get_classifier_ids(csv_dir=None, n=None, dataset_ids=None, method_ids=None):
     if type(dataset_ids) is int:
         dataset_ids = [dataset_ids]
 
-    if type(function_ids) is str:
-        function_ids = [function_ids]
+    if type(method_ids) is str:
+        method_ids = [method_ids]
 
-    try:
-        session = GetConnection()
+    classifier_filename = os.path.join(csv_dir, 'classifiers.csv')
+    classifier_table = pd.read_csv(classifier_filename)
 
-        if n == None and dataset_ids == None and function_ids == None:
-            learners = session.query(Learner).filter(Learner.is_error == 0).all()
-        elif dataset_ids == None and function_ids == None:
-            learners = session.query(Learner).filter(Learner.is_error == 0).limit(n).all()
-        elif n == None and function_ids == None:
-            learners = session.query(Learner).filter(
-                and_(Learner.datarun_id.in_(dataset_ids), Learner.is_error == 0)).all()
-        elif function_ids == None:
-            learners = session.query(Learner).filter(
-                and_(Learner.datarun_id.in_(dataset_ids), Learner.is_error == 0)).limit(n).all()
-        elif n == None and dataset_ids == None:
-            learners = session.query(Learner).filter(
-                and_(Learner.algorithm.in_(function_ids), Learner.is_error == 0)).all()
-        elif dataset_ids == None:
-            learners = session.query(Learner).filter(
-                and_(Learner.algorithm.in_(function_ids), Learner.is_error == 0)).limit(n).all()
-        elif n == None:
-            learners = session.query(Learner).filter(and_(Learner.algorithm.in_(function_ids), Learner.is_error == 0,
-                                                          Learner.datarun_id.in_(dataset_ids))).all()
-        else:
-            learners = session.query(Learner).filter(and_(Learner.algorithm.in_(function_ids), Learner.is_error == 0,
-                                                          Learner.datarun_id.in_(dataset_ids))).limit(n).all()
+    classifier_table = classifier_table[classifier_table.status != 'errored']
 
-    except:
-        print "Error in get_classifier_ids:" % traceback.format_exc()
-    finally:
-        if session:
-            session.close()
+    if method_ids:
+        hyperpartitions_filename = os.path.join(csv_dir, 'hyperpartitions.csv')
+        hyperpartitions_table = pd.read_csv(hyperpartitions_filename)
+
+        hyperpartitions_table = hyperpartitions_table[hyperpartitions_table.method.isin(method_ids)]
+
+        classifier_table = classifier_table[classifier_table.hyperpartition_id.isin(
+                                            hyperpartitions_table.hyperpartition_id.unique())]
+
+    if dataset_ids:
+        dataruns_filename = os.path.join(csv_dir, 'dataruns.csv')
+        dataruns_table = pd.read_csv(dataruns_filename)
+
+        dataruns_table = dataruns_table[dataruns_table.dataset_id.isin(dataset_ids)]
+        datarun_ids = dataruns_table.datarun_id.unique()
+
+        classifier_table = classifier_table[classifier_table.datarun_id.isin(datarun_ids)]
+
+    if n:
+        classifier_table = classifier_table.head(n=n)
 
     classifier_id_list = []
-    for learner in learners:
-        if learner.is_error == 0:
-            classifier_id_list.append(int(learner.id))
+    for idx, row in classifier_table.iterrows():
+        classifier_id_list.append(int(row.classifier_id))
 
     return classifier_id_list
 
 
-def get_classifier_details(classifier_ids=None):
+def get_classifier_details(csv_dir=None, classifier_ids=None):
     classifier_structs = []
 
-    if (type(classifier_ids) == list):
-        for classifier_id in classifier_ids:
-            classifier_structs.append(get_classifier_struct(classifier_id))
+    if classifier_ids:
+        classifier_filename = os.path.join(csv_dir, 'classifiers.csv')
+        classifier_table = pd.read_csv(classifier_filename)
 
-    if (type(classifier_ids) == int):
-        classifier_structs = get_classifier_struct(classifier_ids)
+        if (type(classifier_ids) == list):
+            for classifier_id in classifier_ids:
+                row = classifier_table[classifier_table.classifier_id == classifier_id].squeeze()
+                classifier_structs.append(get_classifier_struct(row))
+
+        if (type(classifier_ids) == int):
+            classifier_structs = get_classifier_struct(classifier_ids)
 
     return classifier_structs
 
 
-def get_classifier_struct(classifier_id):
-    learner = GetLearner(classifier_id)
-
-    if learner.is_error:
-        return None
-
+def get_classifier_struct(row):
     struct = ClassifierInfo()
 
-    struct.classifier_id = classifier_id
-    struct.dataset_id = learner.datarun_id
-    struct.function_id = learner.algorithm
-    struct.train_accuracy = learner.cv
-    struct.train_std = learner.stdev
-    struct.test_accuracy = learner.test
+    struct.classifier_id = row['classifier_id']
+    struct.datarun_id = row['datarun_id']
+    struct.train_cv_metric = row['cv_judgment_metric']
+    struct.test_metric = row['test_judgment_metric']
 
-    for key, value in learner.params.iteritems():
-        struct.hyperparameters.append((key, value))
-
-    # for key, value in learner.trainable_params.iteritems():
-    #     struct.parameters.append((key, value))
-    #
-    # for idx in range(len(frozen.frozens)):
-    #     struct.parameters.append((frozen.frozens[idx][0], frozen.frozens[idx][1]))
+    parameter_pairs = row['hyperparameter_values'].split(';')
+    for parameter_pair in parameter_pairs:
+        if len(parameter_pair) > 0: #ignore empty strings
+            items = parameter_pair.split(':')
+            struct.hyperparameters.append((items[0], items[1]))
 
     return struct

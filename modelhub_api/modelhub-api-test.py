@@ -1,39 +1,39 @@
-import modelhub_api.queries as mh
+import queries as qr
 
-print 'These are the functions available in ATM:'
+# print 'These are the functions available in ATM:'
 
-funcs = mh.get_functions()
-print '\t|{}|'.format('-'*47)
-print '\t| {0: >15} | {1: <27} |'.format('function_id', 'name')
-print '\t|{}|'.format('-'*47)
-for func in funcs:
-    print '\t| {0: >15} | {1: <27} |'.format(func[0], func[1])
-print '\t|{}|'.format('-' * 47)
+# funcs = mh.get_functions()
+# print '\t|{}|'.format('-'*47)
+# print '\t| {0: >15} | {1: <27} |'.format('function_id', 'name')
+# print '\t|{}|'.format('-'*47)
+# for func in funcs:
+#     print '\t| {0: >15} | {1: <27} |'.format(func[0], func[1])
+# print '\t|{}|'.format('-' * 47)
 
 
 
 print '\nThese are 5 datasets in the ModelHub for which SVM & KNN have been applied:'
 
-datasets = mh.get_datasets_info(n=5, function_ids= ['classify_svm', 'classify_knn'])
-print '\t|{}|'.format('-'*34)
-print '\t| {0: >2} | {1: <27} |'.format('ID', 'Dataset')
-print '\t|{}|'.format('-'*34)
+datasets = qr.get_datasets_info(csv_dir='gp_csvs', n=5, method_ids= ['classify_svm', 'classify_knn'])
+print '\t+{}+'.format('-'*41)
+print '\t| {0: >3} | {1: <33} |'.format('ID', 'Dataset')
+print '\t+{}+'.format('-'*41)
 for dataset in datasets:
-    print '\t| {0: >2} | {1: <27} |'.format(dataset[0],dataset[1])
-print '\t|{}|'.format('-' * 34)
+    print '\t| {0: >3} | {1: <33} |'.format(dataset[0],dataset[1])
+print '\t+{}+'.format('-' * 41)
 
 
 
-print '\nHere are some SVM & KNN results for dataset 3:'
+print '\nHere are some SVM & KNN results for dataset 2:'
 
-classifier_ids = mh.get_classifier_ids(n = 5, dataset_ids = 3, function_ids= ['classify_svm', 'classify_knn'])
-classifier_structs = mh.get_classifier_details(classifier_ids)
+classifier_ids = qr.get_classifier_ids(csv_dir='gp_csvs', n = 5, dataset_ids = 2, method_ids= ['classify_svm', 'classify_knn'])
+classifier_structs = qr.get_classifier_details(csv_dir='gp_csvs', classifier_ids=classifier_ids)
 
 print '\t|{}|'.format('-'*29)
-print '\t| {0: >15} | {1: <9} |'.format('Function', 'Test Acc.')
+print '\t| {0: >15} | {1: <9} |'.format('Classifier ID', 'Test Acc.')
 print '\t|{}|'.format('-'*29)
 for classifier_struct in classifier_structs:
-    print '\t| {0: >15} | {1:9.2f} |'.format(classifier_struct.function_id,classifier_struct.test_accuracy)
+    print '\t| {0: >15} | {1:9.2f} |'.format(classifier_struct.classifier_id,classifier_struct.test_metric)
 print '\t|{}|'.format('-' * 29)
 
 print '\nClassifier Details:\n'
