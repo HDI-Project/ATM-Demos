@@ -1,5 +1,13 @@
-from btb.database import *
+from btb.database import (GetLearner,
+                          GetFrozenSet,
+                          GetDatarun,
+                          EnsureDirectory,
+                          DownloadFileS3,
+                          config)
 from btb.mapping import CreateWrapper
+import numpy as np
+import os
+
 
 def get_btb_csv_num_lines(filepath):
     with open(filepath) as f:
@@ -7,12 +15,15 @@ def get_btb_csv_num_lines(filepath):
             pass
     return i + 1
 
+
 def get_btb_csv_num_cols(filepath):
     line = open(filepath).readline()
     return len(line.split(','))
 
 # this works from the assumption the data has been preprocessed by btb:
 # no headers, numerical data only
+
+
 def read_btb_csv(filepath):
     num_rows = get_btb_csv_num_lines(filepath)
     num_cols = get_btb_csv_num_cols(filepath)
@@ -26,17 +37,15 @@ def read_btb_csv(filepath):
 
     return data
 
+
 def LoadData(datarun):
     """
     Loads the data from HTTP (if necessary) and then from
     disk into memory.
     """
-    # download data if necessary
-    basepath = os.path.basename(datarun.local_trainpath)
-
     if not os.path.isfile(datarun.local_trainpath):
         EnsureDirectory("data/processed/")
-        if not DownloadFileS3(config, datarun.local_trainpath ) == datarun.local_trainpath:
+        if not DownloadFileS3(config, datarun.local_trainpath) == datarun.local_trainpath:
             raise Exception("Something about train dataset caching is wrong...")
 
     # load the data into matrix format
@@ -45,7 +54,6 @@ def LoadData(datarun):
     trainY = trainX[:, labelcol]
     trainX = np.delete(trainX, labelcol, axis=1)
 
-    basepath = os.path.basename(datarun.local_testpath)
     if not os.path.isfile(datarun.local_testpath):
         EnsureDirectory("data/processed/")
         if not DownloadFileS3(config, datarun.local_testpath) == datarun.local_testpath:
@@ -73,7 +81,7 @@ frozen_set = GetFrozenSet(frozen_set_id=learner.frozen_set_id, increment=False)
 
 params = dict()
 
-for key,val in learner.params.iteritems():
+for key, val in learner.params.iteritems():
     params[key] = val
 
 for item in frozen_set.frozens:
@@ -87,5 +95,5 @@ trainX, testX, trainY, testY = LoadData(datarun)
 wrapper.load_data_from_objects(trainX, testX, trainY, testY)
 
 performance = wrapper.start()
-for key,value in performance.iteritems():
+for key, value in performance.iteritems():
     print '{}: {}'.format(key, value)

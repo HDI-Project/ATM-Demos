@@ -4,6 +4,7 @@ import pandas as pd
 import csv
 import argparse
 
+
 def calculate_time_to_atm_idx(results, idx):
     running_time = datetime.timedelta()
     for i in range(idx+1):
@@ -11,6 +12,7 @@ def calculate_time_to_atm_idx(results, idx):
         running_time += row['end_time'] - row['start_time']
 
     return running_time
+
 
 def get_best_atm_performance(filepath):
     atm_results = pd.read_csv(filepath)
@@ -20,7 +22,7 @@ def get_best_atm_performance(filepath):
     atm_results.reset_index(drop=True, inplace=True)
 
     cvs = atm_results['cv']
-    stds = atm_results['std']
+    # stds = atm_results['std']
     tests = atm_results['test']
 
     best_cv = cvs.max()
@@ -37,6 +39,7 @@ def get_best_atm_performance(filepath):
     time_to_best_test = calculate_time_to_atm_idx(atm_results, best_test_idx)
 
     return best_cv, time_to_best_cv.total_seconds(), best_test, time_to_best_test.total_seconds()
+
 
 def get_best_openml_performance(filepath, limit=500):
     openml_results = pd.read_csv(filepath)
@@ -73,18 +76,18 @@ def get_time_to_beat_atm(openml_filepath, best_f1):
 
 parser = argparse.ArgumentParser(description='Compile best results for ATM and OpenML.')
 parser.add_argument('-r', '--runtype', type=str, choices=['gp', 'grid'], default='gp',
-                     help='Which ATM run to use (gp or grid).')
+                    help='Which ATM run to use (gp or grid).')
 parser.add_argument('-o', '--openmldir', type=str, default='openml-results', help='Directory with OpenML results.')
 parser.add_argument('-g', '--griddir', type=str, default='atm-results-grid-binary',
-                     help='Directory with ATM Grid results')
+                    help='Directory with ATM Grid results')
 parser.add_argument('-b', '--gpdir', type=str, default='atm-results-gpbandit-binary',
-                     help='Directory with ATM GP+Bandit results')
+                    help='Directory with ATM GP+Bandit results')
 parser.add_argument('-u', '--outprefix', type=str, default='results',
-                     help='File prefix to save the output (gp or grid will be automatically appended).')
+                    help='File prefix to save the output (gp or grid will be automatically appended).')
 parser.add_argument('-c', '--didnamefile', type=str, default='openml-did-name-list.csv',
-                     help='File which list OpenML did and dataset name.')
+                    help='File which list OpenML did and dataset name.')
 parser.add_argument('-e', '--equalval', type=float, default=0.0001,
-                     help='Maximum value to consider being an equal number.')
+                    help='Maximum value to consider being an equal number.')
 args = parser.parse_args()
 
 openml_dir = args.openmldir
@@ -100,12 +103,15 @@ did_name_list = pd.read_csv(args.didnamefile)
 dataset_results_filename = '{}_{}.csv'.format(args.outprefix, run_type)
 with open(dataset_results_filename, 'w') as f:
     writer = csv.writer(f)
-    writer.writerow(['did','name', 'best_cv', 'best_test', 'openml_best_f1', 'openml_time_to_best_f1',
-                     'openml_performance_increase_cv', 'openml_performance_increase_test', 'openml_total_time',
-                     'atm_performance_increase_cv', 'atm_performance_increase_test'])
+    writer.writerow(['did', 'name', 'best_cv', 'best_test', 'openml_best_f1',
+                     'openml_time_to_best_f1',
+                     'openml_performance_increase_cv',
+                     'openml_performance_increase_test', 'openml_total_time',
+                     'atm_performance_increase_cv',
+                     'atm_performance_increase_test'])
 
     for row in did_name_list.iterrows():
-        openml_filepath = os.path.join(openml_dir,'{}.csv'.format(row[1].get('did')))
+        openml_filepath = os.path.join(openml_dir, '{}.csv'.format(row[1].get('did')))
         if run_type == 'grid':
             atm_filepath = os.path.join(grid_dir, row[1].get('name'))
         elif run_type == 'gp':
@@ -117,7 +123,7 @@ with open(dataset_results_filename, 'w') as f:
             best_cv, _, best_test, _ = get_best_atm_performance(filepath=atm_filepath)
             openml_best_f1, openml_time_to_best_f1, openml_total_time = get_best_openml_performance(filepath=openml_filepath)
 
-            #openml better than cv
+            # openml better than cv
             if (openml_best_f1 - best_cv) > effectively_same_value:
                 openml_performance_increase_cv = openml_best_f1 - best_cv
             else:
@@ -129,9 +135,9 @@ with open(dataset_results_filename, 'w') as f:
             else:
                 openml_performance_increase_test = float('nan')
 
-            #if cv better than openml
+            # if cv better than openml
             if (best_cv - openml_best_f1) > effectively_same_value:
-                atm_performance_increase_cv =  best_cv - openml_best_f1
+                atm_performance_increase_cv = best_cv - openml_best_f1
             else:
                 atm_performance_increase_cv = float('nan')
 
@@ -141,7 +147,11 @@ with open(dataset_results_filename, 'w') as f:
             else:
                 atm_performance_increase_test = float('nan')
 
-            writer.writerow([row[1].get('did'), row[1].get('name'), best_cv, best_test, openml_best_f1,
-                             openml_time_to_best_f1, openml_performance_increase_cv, openml_performance_increase_test,
-                             openml_total_time, atm_performance_increase_cv, atm_performance_increase_test])
+            writer.writerow([row[1].get('did'), row[1].get('name'), best_cv,
+                             best_test, openml_best_f1,
+                             openml_time_to_best_f1,
+                             openml_performance_increase_cv,
+                             openml_performance_increase_test,
+                             openml_total_time, atm_performance_increase_cv,
+                             atm_performance_increase_test])
 

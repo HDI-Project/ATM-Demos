@@ -24,8 +24,8 @@ class ClassifierInfo(object):
         str += '\t{} = {}\n'.format('Train CV Metric', self.train_cv_metric)
         str += '\t{} = {}\n'.format('Test Metric', self.test_metric)
         str += '\tParameters:\n'
-        for key,value in self.hyperparameters:
-            str += '\t\t{} = {}\n'.format(key,value)
+        for key, value in self.hyperparameters:
+            str += '\t\t{} = {}\n'.format(key, value)
 
         return str
 
@@ -131,7 +131,8 @@ def get_classifier_struct(row):
 
     parameter_pairs = row['hyperparameter_values'].split(';')
     for parameter_pair in parameter_pairs:
-        if len(parameter_pair) > 0: #ignore empty strings
+        # ignore empty strings
+        if len(parameter_pair) > 0:
             items = parameter_pair.split(':')
             struct.hyperparameters.append((items[0], items[1]))
 
