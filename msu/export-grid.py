@@ -1,4 +1,3 @@
-# from btb.database import *
 from btb.database import (GetLearners,
                           GetDatarun)
 import numpy as np
