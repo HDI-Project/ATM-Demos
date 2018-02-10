@@ -1,10 +1,16 @@
-from btb.database import *
+from btb.database import (EnsureDirectory,
+                          DownloadFileS3,
+                          GetDatarun,
+                          config)
+import pickle
 from btb.mapping import CreateWrapper, Mapping
 from btb.key import Key
 import numpy as np
 import pandas as pd
 from fancyimpute import SoftImpute
 import argparse
+import os
+
 
 def get_btb_csv_num_lines(filepath):
     with open(filepath) as f:
@@ -12,12 +18,15 @@ def get_btb_csv_num_lines(filepath):
             pass
     return i + 1
 
+
 def get_btb_csv_num_cols(filepath):
     line = open(filepath).readline()
     return len(line.split(','))
 
 # this works from the assumption the data has been preprocessed by btb:
 # no headers, numerical data only
+
+
 def read_btb_csv(filepath):
     num_rows = get_btb_csv_num_lines(filepath)
     num_cols = get_btb_csv_num_cols(filepath)
@@ -38,11 +47,9 @@ def LoadData(datarun):
     disk into memory.
     """
     # download data if necessary
-    basepath = os.path.basename(datarun.local_trainpath)
-
     if not os.path.isfile(datarun.local_trainpath):
         EnsureDirectory("data/processed/")
-        if not DownloadFileS3(config, datarun.local_trainpath ) == datarun.local_trainpath:
+        if not DownloadFileS3(config, datarun.local_trainpath) == datarun.local_trainpath:
             raise Exception("Something about train dataset caching is wrong...")
 
     # load the data into matrix format
@@ -51,7 +58,6 @@ def LoadData(datarun):
     trainY = trainX[:, labelcol]
     trainX = np.delete(trainX, labelcol, axis=1)
 
-    basepath = os.path.basename(datarun.local_testpath)
     if not os.path.isfile(datarun.local_testpath):
         EnsureDirectory("data/processed/")
         if not DownloadFileS3(config, datarun.local_testpath) == datarun.local_testpath:
@@ -79,12 +85,14 @@ def LoadDataFromFile(train_path, test_path, labelcol):
 
     return trainX, testX, trainY, testY
 
+
 def isfloat(value):
     try:
         float(value)
         return True
     except ValueError:
         return False
+
 
 def read_params(param_str):
     param_key_value_pairs = param_str.split(',')
@@ -113,14 +121,17 @@ def read_params(param_str):
     return check_param_types(params)
 
 
-def suggest_classifiers(gallery_performances, probe_performances, num_suggestions=5):
+def suggest_classifiers(gallery_performances, probe_performances,
+                        num_suggestions=5):
     incomplete_grid = np.vstack((gallery_performances, probe_performances))
 
-    complete_grid = SoftImpute(max_iters=5, verbose=False).complete(incomplete_grid)
+    complete_grid = SoftImpute(max_iters=5,
+                               verbose=False).complete(incomplete_grid)
 
-    completed_probe_performances = complete_grid[-1,:]
+    completed_probe_performances = complete_grid[-1, :]
 
-    suggestions = np.argsort(-completed_probe_performances) # negative so in descending order
+    # negative so in descending order
+    suggestions = np.argsort(-completed_probe_performances)
 
     return suggestions[:num_suggestions]
 
@@ -130,7 +141,9 @@ def sample_row(row, num_non_nan_entries=5, seed=None):
 
     if seed:
         np.random.seed(seed)
-    selections_col_ids = np.random.choice(non_nan_entries.flatten(), size=num_non_nan_entries, replace=False)
+    selections_col_ids = np.random.choice(non_nan_entries.flatten(),
+                                          size=num_non_nan_entries,
+                                          replace=False)
 
     sampled_row = np.empty(row.shape)
     sampled_row.fill(np.nan)
@@ -145,7 +158,7 @@ def check_param_types(params):
     map = Mapping.ENUMERATOR_CODE_CLASS_MAP[params['function']]
 
     for param in params:
-        if param in map.DEFAULT_KEYS and params[param] != None:
+        if param in map.DEFAULT_KEYS and params[param] is not None:
             key = map.DEFAULT_KEYS[param]
             if key.type == Key.TYPE_INT or key.type == Key.TYPE_INT_EXP:
                 params[param] = int(params[param])
@@ -159,13 +172,21 @@ def check_param_types(params):
 
 # grab the command line arguments
 parser = argparse.ArgumentParser(description='Run recommender experiment')
-parser.add_argument('-g', '--gridpath', help='path to grid pickle file', default=None, required=True)
-parser.add_argument('-c', '--classpath', help='path to classifier dict pickle file', default=None, required=True)
-parser.add_argument('-d', '--datapath', help='path to data tsv file', default=None, required=True)
-parser.add_argument('-p', '--probedatasetid', help='id of probe dataset id', type=int, default=None, required=True)
-parser.add_argument('-n', '--numiter', help='number of iterations', default=2, type=int, required=False)
-parser.add_argument('-s', '--galsize', help='number of gallery classifiers', default=10000, type=int, required=False)
-parser.add_argument('-r', '--numruns', help='number of runs', default=2, type=int, required=False)
+parser.add_argument('-g', '--gridpath', help='path to grid pickle file',
+                    default=None, required=True)
+parser.add_argument('-c', '--classpath',
+                    help='path to classifier dict pickle file', default=None,
+                    required=True)
+parser.add_argument('-d', '--datapath', help='path to data tsv file',
+                    default=None, required=True)
+parser.add_argument('-p', '--probedatasetid', help='id of probe dataset id',
+                    type=int, default=None, required=True)
+parser.add_argument('-n', '--numiter', help='number of iterations', default=2,
+                    type=int, required=False)
+parser.add_argument('-s', '--galsize', help='number of gallery classifiers',
+                    default=10000, type=int, required=False)
+parser.add_argument('-r', '--numruns', help='number of runs', default=2,
+                    type=int, required=False)
 
 args = parser.parse_args()
 
@@ -173,7 +194,7 @@ performance_file = args.gridpath
 classifier_file = args.classpath
 dataset_file = args.datapath
 
-#read in grid info files
+# read in grid info files
 with open(performance_file, 'rb') as handle:
     grid = pickle.load(handle)
 
@@ -190,27 +211,31 @@ num_iters = args.numiter
 
 for run_id in range(args.numruns):
     print 'starting run {}'.format(run_id)
-    with open('results/dataset_{}__run_{}.csv'.format(args.probedatasetid, run_id), 'w') as f:
+    with open('results/dataset_{}__run_{}.csv'.format(args.probedatasetid,
+                                                      run_id), 'w') as f:
         # get probe dataset details
         probe_dataset_info = dataset_info[dataset_info['dataset_id'] == probe_dataset_id]
         probe_row_number = int(probe_dataset_info['row_number'])
 
         # load DataRun from the database
-        datarun = GetDatarun(datarun_id=probe_dataset_id, ignore_completed=False)
+        datarun = GetDatarun(datarun_id=probe_dataset_id,
+                             ignore_completed=False)
 
         # split grid into probe and gallery datasets
         probe_performances = grid[probe_row_number, :]
         gallery_performances = np.delete(grid, probe_row_number, 0)
 
         # sample probe performances
-        sampled_probe_performance = sample_row(probe_performances, num_non_nan_entries=5)
+        sampled_probe_performance = sample_row(probe_performances,
+                                               num_non_nan_entries=5)
 
         best_so_far = np.nanmax(sampled_probe_performance)
 
         f.write('Iter ID,Best Performance So Far\n')
         f.write('{},{}\n'.format(0, best_so_far))
         for iter_id in range(num_iters):
-            suggestions = suggest_classifiers(gallery_performances=gallery_performances, probe_performances=sampled_probe_performance)
+            suggestions = suggest_classifiers(gallery_performances=gallery_performances,
+                                              probe_performances=sampled_probe_performance)
 
             for col_id in suggestions:
                 if not np.isnan(probe_performances[col_id]):
@@ -219,7 +244,8 @@ for run_id in range(args.numruns):
 
                     wrapper = CreateWrapper(params)
                     trainX, testX, trainY, testY = LoadData(datarun)
-                    wrapper.load_data_from_objects(trainX, testX, trainY, testY)
+                    wrapper.load_data_from_objects(trainX, testX, trainY,
+                                                   testY)
 
                     performance = wrapper.start()
 

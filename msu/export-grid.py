@@ -1,4 +1,5 @@
-from btb.database import *
+from btb.database import (GetLearners,
+                          GetDatarun)
 import numpy as np
 import pickle
 import warnings
@@ -24,12 +25,13 @@ def convert_classifier_to_str(classifier):
 
     return paramstr
 
+
 def save_classifier_dict():
     classifier_dict = collections.OrderedDict()
 
     count = 0
 
-    for datarun_id in range(1,421):
+    for datarun_id in range(1, 421):
         classifiers = GetLearners(datarun_id=datarun_id)
 
         for classifier in classifiers:
@@ -80,6 +82,7 @@ def save_grid():
     with open('grid.pickle', 'wb') as handle:
         pickle.dump(grid, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
+
 def export_csv_grid():
     with open('grid.pickle', 'rb') as handle:
         grid = pickle.load(handle)
@@ -92,7 +95,6 @@ def export_csv_grid():
     with open('classifier_definitions.tsv', 'w') as f:
         line = 'column_number\tdefinition\n'
         f.write(line)
-
 
         counter = 0
         for key in classifier_dict.keys():
@@ -114,12 +116,6 @@ def export_csv_grid():
             f.write(line)
 
             counter += 1
-
-
-
-
-
-
 
 save_classifier_dict()
 save_grid()

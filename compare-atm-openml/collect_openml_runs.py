@@ -16,7 +16,7 @@ def get_results(runid, apikey):
     url = 'https://www.openml.org/api/v1/json/run/{}?{}'.format(runid, apikey)
 
     r = requests.get(url)
-    if r.status_code == 200:
+    if r.status_code == requests.codes.ok:
         if r.content:
             j = r.json()
 
@@ -35,7 +35,7 @@ def get_tasks(dataid, apikey):
     url = 'https://www.openml.org/api/v1/json/task/list/data_id/{}/type/1?api_key={}'.format(dataid, apikey)
 
     r = requests.get(url)
-    if r.status_code == 200:
+    if r.status_code == requests.codes.ok:
         if r.content:
             j = r.json()
             for task in j['tasks']['task']:
@@ -53,21 +53,24 @@ def get_runs(taskids, apikey, writer, max_num_runs=500, step=10000):
 
         while not at_end:
             url = 'https://www.openml.org/api/v1/json/run/list/task/{}/limit/{}/offset/{}?api_key={}'.format(task, step,
-                                                                                                        offset, apikey)
-
+                                                                                                             offset, apikey)
             r = requests.get(url)
-            if r.status_code == 200:
-                run_info = {}
+            if r.status_code == requests.codes.ok:
                 try:
                     if r.content:
                         j = r.json()
 
                         for run in j['runs']['run']:
-                            result = get_results(runid=run['run_id'], apikey=apikey)
+                            result = get_results(runid=run['run_id'],
+                                                 apikey=apikey)
 
                             try:
-                                writer.writerow([run['run_id'], run['upload_time'], result['predictive_accuracy'],
-                                             result['f_measure'], result['precision'], result['recall']])
+                                writer.writerow([run['run_id'],
+                                                 run['upload_time'],
+                                                 result['predictive_accuracy'],
+                                                 result['f_measure'],
+                                                 result['precision'],
+                                                 result['recall']])
                             except Exception:
                                 msg = traceback.format_exc()
                                 print 'result skipped: {}'.format(msg)
@@ -88,13 +91,13 @@ def get_runs(taskids, apikey, writer, max_num_runs=500, step=10000):
 
 parser = argparse.ArgumentParser(description='Download OpenML run results.')
 parser.add_argument('-K', '--apikey', required=True, type=str,
-                     help='OpenML API Key to use.')
+                    help='OpenML API Key to use.')
 parser.add_argument('-f', '--didfile', type=str, required=True,
-                     help='Path to dataset id file.')
+                    help='Path to dataset id file.')
 parser.add_argument('-d', '--outdir', type=str, default='openml',
-                     help='Folder to store the output.')
+                    help='Folder to store the output.')
 parser.add_argument('-N', '--numruns', type=int, default=0,
-                     help='Maximum number of runs to download for each dataset. 0 indicates no maximum -- download all runs.')
+                    help='Maximum number of runs to download for each dataset. 0 indicates no maximum -- download all runs.')
 args = parser.parse_args()
 
 
@@ -104,16 +107,19 @@ with open(args.didfile, 'r') as id_file:
 ensure_directory(directory=args.outdir)
 
 for counter, did in enumerate(dids):
-    did = int(did) #convert from string to integer (also removes endline)
+    # convert from string to integer (also removes endline)
+    did = int(did)
 
     tasks = get_tasks(dataid=did, apikey=args.apikey)
 
-    dataset_output_filepath = os.path.join(args.outdir,'{}.csv'.format(did))
+    dataset_output_filepath = os.path.join(args.outdir, '{}.csv'.format(did))
     with open(dataset_output_filepath, 'wb') as dataset_file:
 
         writer = csv.writer(dataset_file)
-        writer.writerow(['Run ID', 'Time', 'Predictive_Accuracy', 'F_Measure', 'Precision', 'Recall'])
+        writer.writerow(['Run ID', 'Time', 'Predictive_Accuracy', 'F_Measure',
+                         'Precision', 'Recall'])
 
-        get_runs(taskids=tasks, apikey=args.apikey, writer=writer, max_num_runs=args.numruns)
+        get_runs(taskids=tasks, apikey=args.apikey, writer=writer,
+                 max_num_runs=args.numruns)
 
     print '{} datasets processed'.format(counter)
