@@ -2,13 +2,24 @@ import pandas as pd
 import os
 
 
-class ClassifierInfo(object):
-    def __init__(self):
-        self.classifier_id = -1
-        self.datarun_id = -1
+class Classifier(object):
+
+    def __init__(self, row):
+        self.classifier_id = row['classifier_id']
+        self.datarun_id = row['datarun_id']
+        self.train_cv_metric = row['cv_judgment_metric']
+        self.test_metric = row['test_judgment_metric']
+
+        self.model = None
+
         self.hyperparameters = []
-        self.train_cv_metric = -1.0
-        self.test_metric = -1.0
+
+        parameter_pairs = row['hyperparameter_values'].split(';')
+        for parameter_pair in parameter_pairs:
+            # ignore empty strings
+            if len(parameter_pair) > 0:
+                items = parameter_pair.split(':')
+                self.hyperparameters.append((items[0], items[1]))
 
     def __repr__(self):
         return 'Classifier{}'.format(self.classifier_id)
@@ -16,18 +27,42 @@ class ClassifierInfo(object):
     def __str__(self):
         return self.get_string_representation()
 
+    def to_dict(self):
+        info = {
+            'classifier_id': self.classifier_id,
+            'datarun_id': self.datarun_id,
+            'test_metric': self.test_metric,
+            'train_cv_metric': self.train_cv_metric,
+            'hyperparameters': dict(self.hyperparameters)
+        }
+
+        if self.model:
+            info['learner_class'] = self.learner_class
+
+        return info
+
+    @property
+    def learner_class(self):
+        if self.model:
+            learner_class = self.model.algorithm.learner_class
+            return '.'.join((learner_class.__module__, learner_class.__name__))
+
     def get_string_representation(self):
-        str = ''
+        string = ('Classifier - ID = {}\n'
+                  '\tDatarun ID = {}\n'
+                  '\tTrain CV Metric = {}\n'
+                  '\tTest Metric = {}\n')
+        string = string.format(self.classifier_id, self.datarun_id,
+                               self.train_cv_metric, self.test_metric)
 
-        str += 'Classifier - ID = {}\n'.format(self.classifier_id)
-        str += '\t{} = {}\n'.format('Datarun ID', self.datarun_id)
-        str += '\t{} = {}\n'.format('Train CV Metric', self.train_cv_metric)
-        str += '\t{} = {}\n'.format('Test Metric', self.test_metric)
-        str += '\tParameters:\n'
+        if self.model:
+            string += '\tLearner class = {}\n'.format(self.learner_class)
+
+        string += '\tParameters:\n'
         for key, value in self.hyperparameters:
-            str += '\t\t{} = {}\n'.format(key, value)
+            string += '\t\t{} = {}\n'.format(key, value)
 
-        return str
+        return string
 
 
 def get_datasets_info(csv_dir=None, n=None, method_ids=None):
@@ -113,27 +148,9 @@ def get_classifier_details(csv_dir=None, classifier_ids=None):
         if (type(classifier_ids) == list):
             for classifier_id in classifier_ids:
                 row = classifier_table[classifier_table.classifier_id == classifier_id].squeeze()
-                classifier_structs.append(get_classifier_struct(row))
+                classifier_structs.append(Classifier(row))
 
         if (type(classifier_ids) == int):
-            classifier_structs = get_classifier_struct(classifier_ids)
+            classifier_structs = Classifier(classifier_ids)
 
     return classifier_structs
-
-
-def get_classifier_struct(row):
-    struct = ClassifierInfo()
-
-    struct.classifier_id = row['classifier_id']
-    struct.datarun_id = row['datarun_id']
-    struct.train_cv_metric = row['cv_judgment_metric']
-    struct.test_metric = row['test_judgment_metric']
-
-    parameter_pairs = row['hyperparameter_values'].split(';')
-    for parameter_pair in parameter_pairs:
-        # ignore empty strings
-        if len(parameter_pair) > 0:
-            items = parameter_pair.split(':')
-            struct.hyperparameters.append((items[0], items[1]))
-
-    return struct
